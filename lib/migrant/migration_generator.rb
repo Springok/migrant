@@ -8,9 +8,14 @@ module Migrant
       FileUtils.mkdir_p(Rails.root.join('db', 'migrate'))
       @possible_irreversible_migrations = false
 
-      migrator = (ActiveRecord::Migrator.public_methods.include?(:open))? 
-                  ActiveRecord::Migrator.open(migrations_path) : 
-                  ActiveRecord::Migrator.new(:up, migrations_path)
+      # Extra Monkey patching
+      # Rails adjusted the params of #open / #new to accept array of migration elements instead of migration_paths
+      # https://github.com/rails/rails/blob/v5.2.8/activerecord/lib/active_record/migration.rb#L1183
+      migrations = ActiveRecord::MigrationContext.new('db/migrate').migrations
+      migrator   = (ActiveRecord::Migrator.public_methods.include?(:open))?
+                    ActiveRecord::Migrator.open(migrations) :
+                    ActiveRecord::Migrator.new(:up, migrations)
+      # end-of Extra Monkey patching
 
       unless migrator.pending_migrations.blank?
         log "You have some pending database migrations. You can either:\n1. Run them with rake db:migrate\n2. Delete them, in which case this task will probably recreate their actions (DON'T do this if they've been in SCM).", :error
