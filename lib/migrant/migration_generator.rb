@@ -8,10 +8,15 @@ module Migrant
       FileUtils.mkdir_p(Rails.root.join('db', 'migrate'))
       @possible_irreversible_migrations = false
 
-      migrator = (ActiveRecord::Migrator.public_methods.include?(:open))? 
-                  ActiveRecord::Migrator.open(migrations_path) : 
-                  ActiveRecord::Migrator.new(:up, migrations_path)
-                  
+      migrator = if defined?(ActiveRecord::MigrationContext) # Rails 5
+                   migrations = ActiveRecord::MigrationContext.new(ActiveRecord::Migrator.migrations_paths).migrations
+                   ActiveRecord::Migrator.new(:up, migrations)
+                 elsif ActiveRecord::Migrator.public_methods.include?(:open) # Rails 4
+                   ActiveRecord::Migrator.open(migrations_path)
+                 else # older
+                   ActiveRecord::Migrator.new(:up, migrations_path)
+                 end
+
       @class_suffix = defined?(ActiveRecord::Migration::Compatibility)? "[#{Rails.version[/^\d+\.\d+/]}]" : ''
 
       unless migrator.pending_migrations.blank?
