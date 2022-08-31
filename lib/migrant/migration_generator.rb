@@ -8,14 +8,14 @@ module Migrant
       FileUtils.mkdir_p(Rails.root.join('db', 'migrate'))
       @possible_irreversible_migrations = false
 
-      # Extra Monkey patching
-      # Rails adjusted the params of #open / #new to accept array of migration elements instead of migration_paths
-      # https://github.com/rails/rails/blob/v5.2.8/activerecord/lib/active_record/migration.rb#L1183
-      migrations = ActiveRecord::MigrationContext.new('db/migrate').migrations
-      migrator   = (ActiveRecord::Migrator.public_methods.include?(:open))?
-                    ActiveRecord::Migrator.open(migrations) :
-                    ActiveRecord::Migrator.new(:up, migrations)
-      # end-of Extra Monkey patching
+      migrator = if defined?(ActiveRecord::MigrationContext) # Rails 5
+                   migrations = ActiveRecord::MigrationContext.new(ActiveRecord::Migrator.migrations_paths).migrations
+                   ActiveRecord::Migrator.new(:up, migrations)
+                 elsif ActiveRecord::Migrator.public_methods.include?(:open) # Rails 4
+                   ActiveRecord::Migrator.open(migrations_path)
+                 else # older
+                   ActiveRecord::Migrator.new(:up, migrations_path)
+                 end
 
       @class_suffix = defined?(ActiveRecord::Migration::Compatibility)? "[#{Rails.version[/^\d+\.\d+/]}]" : ''
 
